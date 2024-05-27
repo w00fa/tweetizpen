@@ -102,6 +102,7 @@ while ((Get-Date) - $startTime).TotalSeconds -le 30 {
 }
 
 # Close all windows and stop the script after 30 seconds
+Start-Sleep -Seconds 30
 Close-AllWindows
 
 # Remove the PowerShell script file after execution
